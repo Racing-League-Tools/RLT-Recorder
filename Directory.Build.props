@@ -3,7 +3,7 @@
   <!-- One place to set the version for every project in the repository, so the
        window title, the CLI banner and the binaries can never disagree. -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Product>RLT Recorder</Product>
   </PropertyGroup>
 
