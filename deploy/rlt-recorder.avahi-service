@@ -1,0 +1,18 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+
+<!--
+  Advertises the file server over mDNS, so the recorder turns up in any Bonjour
+  browser and the machine stays reachable as <hostname>.local even when DHCP
+  moves its address. Installed to /etc/avahi/services/ when avahi is present.
+
+  The port here must match http_port in the recorder's config.
+-->
+<service-group>
+  <name replace-wildcards="yes">RLT Recorder on %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>20780</port>
+    <txt-record>path=/</txt-record>
+  </service>
+</service-group>

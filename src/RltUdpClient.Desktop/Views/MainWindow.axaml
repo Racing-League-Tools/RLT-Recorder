@@ -1,0 +1,226 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:RltUdpClient.Desktop.ViewModels"
+        x:Class="RltUdpClient.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Icon="/rlt_udp.ico"
+        Width="640" Height="700"
+        MinWidth="520" MinHeight="520"
+        Background="#000000"
+        RequestedThemeVariant="Dark">
+
+  <!-- Palette sampled from the main Racing League Tools window: black base,
+       #171717 panels, #1f1f1f bars, #2b2b2b lines, #666666 secondary text.
+       Sections are separated by hairlines and background tone, never by
+       rounded cards. -->
+  <Window.Resources>
+    <SolidColorBrush x:Key="Base" Color="#000000" />
+    <SolidColorBrush x:Key="Panel" Color="#171717" />
+    <SolidColorBrush x:Key="Bar" Color="#1f1f1f" />
+    <SolidColorBrush x:Key="Line" Color="#2b2b2b" />
+    <SolidColorBrush x:Key="Muted" Color="#666666" />
+    <SolidColorBrush x:Key="Text" Color="#e4e4e4" />
+    <SolidColorBrush x:Key="Live" Color="#3fa34d" />
+    <SolidColorBrush x:Key="Idle" Color="#4a4a4a" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="Margin" Value="0,0,0,14" />
+    </Style>
+    <Style Selector="TextBlock.column">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Margin" Value="0,3,0,0" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="Padding" Value="16,14" />
+    </Style>
+    <Style Selector="Border.rule">
+      <Setter Property="Background" Value="{StaticResource Line}" />
+      <Setter Property="Height" Value="1" />
+    </Style>
+
+    <!-- Flat, borderless buttons that light up on hover, as in the main app. -->
+    <Style Selector="Button">
+      <Setter Property="Background" Value="{StaticResource Bar}" />
+      <Setter Property="Foreground" Value="{StaticResource Text}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="14,7" />
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Line}" />
+      <Setter Property="TextBlock.Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter">
+      <Setter Property="TextBlock.Foreground" Value="{StaticResource Muted}" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="Foreground" Value="{StaticResource Text}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="Foreground" Value="{StaticResource Text}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Fill" Value="{StaticResource Idle}" />
+    </Style>
+    <Style Selector="Ellipse.dot.live">
+      <Setter Property="Fill" Value="{StaticResource Live}" />
+    </Style>
+
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="16,9" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Bar}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Bar}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" Margin="0">
+
+    <TextBlock Grid.Row="0" Text="Recorder" Classes="heading" Margin="20,18,20,14" />
+    <Border Grid.Row="1" Classes="rule" />
+
+    <!-- Status -->
+    <Border Grid.Row="2" Classes="panel">
+      <StackPanel Spacing="14">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                   Classes="dot" Classes.live="{Binding IsReceiving}" />
+          <TextBlock Text="{Binding StatusHeadline}" FontSize="15" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding CurrentFile}" Classes="hint" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,*,*,*">
+          <StackPanel Grid.Column="0">
+            <TextBlock Text="Session" Classes="column" />
+            <TextBlock Text="{Binding SessionLabel}" Classes="value" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Text="Written" Classes="column" />
+            <TextBlock Text="{Binding PacketsWrittenLabel}" Classes="value" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Filtered" Classes="column" />
+            <TextBlock Text="{Binding PacketsFilteredLabel}" Classes="value" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Text="Size" Classes="column" />
+            <TextBlock Text="{Binding CurrentSizeLabel}" Classes="value" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="3" Classes="rule" />
+
+    <!-- Settings -->
+    <StackPanel Grid.Row="4" Spacing="12" Margin="20,16,20,16">
+      <Grid ColumnDefinitions="90,110,*">
+        <TextBlock Grid.Column="0" Text="UDP port" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Value="{Binding Port}"
+                       Minimum="1" Maximum="65535" FormatString="0"
+                       ShowButtonSpinner="False" IsEnabled="{Binding IsIdle}" />
+        <TextBlock Grid.Column="2" Text="Use the same port in the game's telemetry settings"
+                   Classes="hint" VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap" />
+      </Grid>
+
+      <Grid ColumnDefinitions="90,*,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="Save to" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding OutputDirectory}" IsEnabled="{Binding IsIdle}"
+                 ToolTip.Tip="{Binding OutputDirectory}" />
+        <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseFolderCommand}"
+                IsEnabled="{Binding IsIdle}" Margin="10,0,0,0" />
+        <Button Grid.Column="3" Content="Open" Command="{Binding OpenFolderCommand}" Margin="6,0,0,0" />
+      </Grid>
+
+      <Button Content="{Binding ActionLabel}" Command="{Binding ToggleRecordingCommand}"
+              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,10" />
+
+      <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsServed}">
+        <TextBlock Text="Also reachable on this network at" Classes="hint" />
+        <TextBlock Text="{Binding ServerAddress}" Classes="hint"
+                   ToolTip.Tip="Open this on a phone or another computer to download the recordings" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border Grid.Row="5" Classes="rule" />
+
+    <TextBlock Grid.Row="6" Text="Recorded sessions" Classes="column"
+               Margin="20,14,20,8" VerticalAlignment="Top" />
+
+    <!-- Files -->
+    <Border Grid.Row="6" Background="{StaticResource Base}" Margin="0,38,0,0">
+      <Grid>
+        <TextBlock Text="Nothing recorded yet" Classes="hint" Margin="20,10,0,0"
+                   IsVisible="{Binding !Files.Count}" />
+        <ListBox ItemsSource="{Binding Files}" Padding="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:DumpFileItem">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Size}" Classes="hint"
+                           Margin="14,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Recorded}" Classes="hint"
+                           VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="7" Classes="rule" />
+
+    <!-- Log, styled like the status strip at the bottom of the main app -->
+    <Border Grid.Row="8" Background="{StaticResource Bar}" Padding="20,10" MaxHeight="130">
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Log}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Text="{Binding}" FontSize="12"
+                         Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+  </Grid>
+</Window>
