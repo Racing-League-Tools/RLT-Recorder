@@ -139,7 +139,14 @@ dotnet build
 dotnet run --project src/RltUdpClient.Cli -- --port 20777 --output ./dumps
 ```
 
-Publishing for another machine:
+Every release package — Windows window, Linux CLI with its installer, macOS app
+bundles and CLI — into `dist/`, versioned from `Directory.Build.props`:
+
+```
+python tools/build_dist.py
+```
+
+Publishing a single target by hand:
 
 ```
 dotnet publish src/RltUdpClient.Cli -c Release -r linux-arm64 --self-contained

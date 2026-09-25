@@ -9,3 +9,4 @@
 *.py              text eol=lf
 
 *.ico binary
+*.icns binary
