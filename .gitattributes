@@ -10,3 +10,5 @@
 
 *.ico binary
 *.icns binary
+*.png binary
+*.so.* binary

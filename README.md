@@ -139,8 +139,9 @@ dotnet build
 dotnet run --project src/RltUdpClient.Cli -- --port 20777 --output ./dumps
 ```
 
-Every release package — Windows window, Linux CLI with its installer, macOS app
-bundles and CLI — into `dist/`, versioned from `Directory.Build.props`:
+Every release package — Windows window, Linux window and CLI (the CLI with its
+installer), macOS app bundles and CLI — into `dist/`, versioned from
+`Directory.Build.props`:
 
 ```
 python tools/build_dist.py
@@ -154,6 +155,12 @@ dotnet publish src/RltUdpClient.Cli -c Release -r linux-arm64 --self-contained
 
 Verified RIDs so far: `win-x64`, `linux-x64`, `linux-arm64` — the two Linux
 builds have been run on real machines, not just cross-compiled.
+The window on Linux ships as a tarball with `libICE`/`libSM` from Debian 12
+beside it: Avalonia's X11 backend loads them unconditionally at start-up, and
+minimal systems (WSL's Ubuntu, for one) do not have them. It keeps its config in
+`~/.config/rlt-recorder/` and recordings in `~/RLT Recorder/`. Run on x64 under
+WSLg; arm64 has only been cross-compiled.
+
 `osx-arm64` and `osx-x64` cross-compile and come out ad-hoc signed, but have
 not been run on a Mac yet. Inside a macOS app bundle the config lives in
 `~/Library/Application Support/RLT Recorder/` and recordings default to

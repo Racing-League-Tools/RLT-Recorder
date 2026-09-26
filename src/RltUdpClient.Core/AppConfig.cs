@@ -6,13 +6,17 @@ namespace RltUdpClient.Core;
 /// <summary>
 /// On-disk settings. Lives next to the executable as <c>config.json</c> unless a
 /// path is given explicitly, matching how the upstream dumper behaves — except
-/// inside a macOS app bundle, see <see cref="IsMacAppBundle"/>.
+/// for the window on macOS and Linux, see <see cref="UsesUserFolders"/>.
 /// </summary>
 public sealed class AppConfig
 {
     public const string DefaultFileName = "config.json";
 
-    private const string MacFolderName = "RLT Recorder";
+    /// <summary>Recordings folder in the home directory, and the settings folder on macOS.</summary>
+    private const string UserFolderName = "RLT Recorder";
+
+    /// <summary>Settings folder under <c>~/.config</c> on Linux, lower-case as is the custom there.</summary>
+    private const string XdgFolderName = "rlt-recorder";
 
     /// <summary>
     /// True when running from <c>*.app/Contents/MacOS</c>. Nothing may be written
@@ -22,6 +26,19 @@ public sealed class AppConfig
     /// </summary>
     public static bool IsMacAppBundle { get; } = OperatingSystem.IsMacOS()
         && AppContext.BaseDirectory.Contains(".app/Contents/MacOS", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether settings and recordings go to the user's own folders rather than
+    /// beside the executable. Always inside a macOS bundle. For the window on
+    /// Linux too: it gets unpacked or installed wherever — <c>/opt</c> is not
+    /// writable — and a menu launcher picks the working directory, so neither
+    /// the binary's folder nor <c>./dumps</c> can be relied on. The command-line
+    /// recorder keeps its config beside itself or wherever <c>--config</c> says,
+    /// which is what the systemd install depends on.
+    /// </summary>
+    private static bool UsesUserFolders(bool desktop) => IsMacAppBundle || (desktop && OperatingSystem.IsLinux());
+
+    private static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     [JsonPropertyName("port")]
     public int Port { get; set; } = 20777;
@@ -96,7 +113,7 @@ public sealed class AppConfig
     /// Loads the configuration, writing a default file when none exists yet so
     /// that a headless install has something to edit.
     /// </summary>
-    public static AppConfig Load(string path, Action<string>? log = null)
+    public static AppConfig Load(string path, Action<string>? log = null, bool desktop = false)
     {
         var baseDirectory = Path.GetDirectoryName(Path.GetFullPath(path)) ?? AppContext.BaseDirectory;
 
@@ -106,9 +123,8 @@ public sealed class AppConfig
 
             // Home rather than Documents: Documents is behind a macOS privacy
             // prompt, and a member who clicks "Don't Allow" gets no recordings.
-            if (IsMacAppBundle)
-                created.OutputDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), MacFolderName);
+            if (UsesUserFolders(desktop))
+                created.OutputDirectory = Path.Combine(Home, UserFolderName);
 
             created.BaseDirectory = baseDirectory;
             created.Save(path);
@@ -134,19 +150,22 @@ public sealed class AppConfig
 
     /// <summary>
     /// Resolves the config path: the one given, or <c>config.json</c> beside the
-    /// executable — in Application Support when that is a macOS app bundle.
+    /// executable — in the user's settings folder when <see cref="UsesUserFolders"/>.
     /// </summary>
-    public static string ResolvePath(string? explicitPath)
+    public static string ResolvePath(string? explicitPath, bool desktop = false)
     {
         if (!string.IsNullOrWhiteSpace(explicitPath))
             return Path.GetFullPath(explicitPath);
 
-        if (IsMacAppBundle)
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "Library", "Application Support", MacFolderName, DefaultFileName);
+        if (!UsesUserFolders(desktop))
+            return Path.Combine(AppContext.BaseDirectory, DefaultFileName);
 
-        return Path.Combine(AppContext.BaseDirectory, DefaultFileName);
+        if (OperatingSystem.IsMacOS())
+            return Path.Combine(Home, "Library", "Application Support", UserFolderName, DefaultFileName);
+
+        var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        var configRoot = string.IsNullOrWhiteSpace(xdg) ? Path.Combine(Home, ".config") : xdg;
+        return Path.Combine(configRoot, XdgFolderName, DefaultFileName);
     }
 
     public RecorderOptions ToRecorderOptions() => new()

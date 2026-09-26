@@ -2,13 +2,14 @@
 
     python tools/build_dist.py
 
-Windows window, Linux CLI (x64, arm64) with its installer, and macOS app
-bundles plus CLI (Apple Silicon, Intel). Existing config.json and dumps/ in
+Windows window; Linux window and CLI (x64, arm64), the CLI with its
+installer; macOS app bundles plus CLI (Apple Silicon, Intel). Existing config.json and dumps/ in
 dist are left alone, so a test install there survives a rebuild.
 
 The version comes from Directory.Build.props, the one place it is set.
 """
 
+import io
 import re
 import shutil
 import stat
@@ -56,6 +57,44 @@ def build_windows(work: Path) -> None:
     out = work / "win-x64"
     publish(DESKTOP, "win-x64", out, single_file=True)
     copy_binaries(out, DIST / "rlt-recorder-gui-windows")
+
+
+def tar_add(t: tarfile.TarFile, name: str, data: bytes, mode: int) -> None:
+    info = tarfile.TarInfo(name)
+    info.size, info.mode, info.mtime = len(data), mode, 1767225600  # 2026-01-01
+    t.addfile(info, io.BytesIO(data))
+
+
+def build_linux_gui(work: Path, ver: str) -> None:
+    """The window as a tarball to unpack anywhere. It carries libICE and libSM:
+    Avalonia's X11 backend loads them unconditionally at start-up, and a
+    minimal system without them gets a crash instead of a window."""
+    target = DIST / "rlt-recorder-gui-linux"
+    target.mkdir(parents=True, exist_ok=True)
+    extras = ROOT / "deploy" / "linux"
+    readme = (extras / "README.txt").read_text(encoding="utf-8").replace("@VERSION@", ver)
+
+    for rid in ("linux-x64", "linux-arm64"):
+        out = work / f"gui-{rid}"
+        publish(DESKTOP, rid, out, single_file=True)
+
+        with tarfile.open(target / f"rlt-recorder-gui-{rid}.tar.gz", "w:gz") as t:
+            for f in sorted(out.iterdir()):
+                if f.is_file() and f.suffix != ".pdb":
+                    tar_add(t, f"rlt-recorder/{f.name}", f.read_bytes(),
+                            0o755 if f.name == "RltUdpClient" else 0o644)
+            for lib in sorted((extras / "lib" / rid).iterdir()):
+                tar_add(t, f"rlt-recorder/{lib.name}", lib.read_bytes(), 0o644)
+            for licence in sorted((extras / "lib").glob("COPYING.*")):
+                tar_add(t, f"rlt-recorder/{licence.name}", licence.read_bytes(), 0o644)
+            tar_add(t, "rlt-recorder/rlt-recorder.png", (extras / "rlt-recorder.png").read_bytes(), 0o644)
+            # Read as text, which folds CRLF to LF, so a CRLF checkout cannot
+            # break the shebang line.
+            script = (extras / "add-to-menu.sh").read_text(encoding="utf-8")
+            tar_add(t, "rlt-recorder/add-to-menu.sh", script.encode(), 0o755)
+            tar_add(t, "rlt-recorder/README.txt", readme.encode(), 0o644)
+
+    (target / "README.txt").write_text(readme, encoding="utf-8", newline="\n")
 
 
 def build_linux(work: Path) -> None:
@@ -159,6 +198,7 @@ def main() -> int:
         work = Path(tmp)
         build_windows(work)
         build_linux(work)
+        build_linux_gui(work, ver)
         build_macos(work, ver)
 
     print("done")

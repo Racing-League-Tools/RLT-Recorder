@@ -47,8 +47,8 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel(string[] args)
     {
-        _configPath = AppConfig.ResolvePath(null);
-        _config = AppConfig.Load(_configPath);
+        _configPath = AppConfig.ResolvePath(null, desktop: true);
+        _config = AppConfig.Load(_configPath, desktop: true);
 
         _port = _config.Port;
         _outputDirectory = _config.ResolvedOutputDirectory;
