@@ -7,10 +7,10 @@ first time; that is expected.
 Which file
 ----------
 Apple menu > About This Mac > "Chip":
-  Apple M1/M2/M3/M4  ->  rlt-recorder-macos-apple-silicon.zip
-  Intel              ->  rlt-recorder-macos-intel.zip
+  Apple M1/M2/M3/M4  ->  rlt-recorder-gui-macos-apple-silicon.zip
+  Intel              ->  rlt-recorder-gui-macos-intel.zip
 
-The rlt-udp-record-*.tar.gz files are the command-line version, only needed
+The rlt-recorder-cli-*.tar.gz files are the command-line version, only needed
 for an always-on machine without a screen.
 
 First start

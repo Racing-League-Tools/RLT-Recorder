@@ -55,11 +55,11 @@ def copy_binaries(src: Path, dst: Path) -> None:
 def build_windows(work: Path) -> None:
     out = work / "win-x64"
     publish(DESKTOP, "win-x64", out, single_file=True)
-    copy_binaries(out, DIST / "rlt-recorder-windows")
+    copy_binaries(out, DIST / "rlt-recorder-gui-windows")
 
 
 def build_linux(work: Path) -> None:
-    target = DIST / "rlt-udp-record-linux"
+    target = DIST / "rlt-recorder-cli-linux"
     target.mkdir(parents=True, exist_ok=True)
     for rid in ("linux-x64", "linux-arm64"):
         out = work / rid
@@ -114,6 +114,11 @@ def info_plist(ver: str) -> str:
 def build_macos(work: Path, ver: str) -> None:
     target = DIST / "rlt-recorder-macos"
     target.mkdir(parents=True, exist_ok=True)
+
+    # Everything here is generated; clearing it keeps a renamed package from
+    # leaving its old name behind for someone to download by mistake.
+    for old in [*target.glob("*.zip"), *target.glob("*.tar.gz")]:
+        old.unlink()
     icon = (ROOT / "deploy" / "macos" / "rlt_udp.icns").read_bytes()
     root = "RLT Recorder.app/Contents/"
 
@@ -121,7 +126,7 @@ def build_macos(work: Path, ver: str) -> None:
         app = work / rid
         publish(DESKTOP, rid, app)
 
-        with zipfile.ZipFile(target / f"rlt-recorder-macos-{label}.zip", "w") as z:
+        with zipfile.ZipFile(target / f"rlt-recorder-gui-macos-{label}.zip", "w") as z:
             zip_add(z, root + "Info.plist", info_plist(ver).encode(), 0o644)
             zip_add(z, root + "Resources/rlt_udp.icns", icon, 0o644)
             for f in sorted(app.iterdir()):
@@ -135,7 +140,7 @@ def build_macos(work: Path, ver: str) -> None:
 
         cli = work / f"cli-{rid}"
         publish(CLI, rid, cli)
-        with tarfile.open(target / f"rlt-udp-record-macos-{label}.tar.gz", "w:gz") as t:
+        with tarfile.open(target / f"rlt-recorder-cli-macos-{label}.tar.gz", "w:gz") as t:
             member = t.gettarinfo(cli / "rlt-udp-record", "rlt-udp-record")
             member.mode, member.uid, member.gid, member.uname, member.gname = 0o755, 0, 0, "", ""
             with open(cli / "rlt-udp-record", "rb") as binary:
