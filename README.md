@@ -161,10 +161,17 @@ minimal systems (WSL's Ubuntu, for one) do not have them. It keeps its config in
 `~/.config/rlt-recorder/` and recordings in `~/RLT Recorder/`. Run on x64 under
 WSLg; arm64 has only been cross-compiled.
 
-`osx-arm64` and `osx-x64` cross-compile and come out ad-hoc signed, but have
-not been run on a Mac yet. Inside a macOS app bundle the config lives in
-`~/Library/Application Support/RLT Recorder/` and recordings default to
-`~/RLT Recorder/`, since nothing may be written into the bundle itself.
+The macOS window is published single-file, so `Contents/MacOS` holds only
+Mach-O, and the whole bundle is ad-hoc signed with
+[rcodesign](https://github.com/indygreg/apple-platform-rs) (put it in
+`tools/bin` or point `RCODESIGN` at it). Without the bundle seal Gatekeeper
+calls a downloaded app "damaged"; with it, the usual "cannot verify the
+developer" and Open Anyway. Not notarized — that needs an Apple Developer
+account. The CLI has been run on Apple Silicon; the signed window has not
+yet been opened on a Mac. Inside a macOS app bundle
+the config lives in `~/Library/Application Support/RLT Recorder/` and
+recordings default to `~/RLT Recorder/`, since nothing may be written into the
+bundle itself.
 
 ## Testing without the game
 

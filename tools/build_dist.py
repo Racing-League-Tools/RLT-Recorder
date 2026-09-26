@@ -10,6 +10,7 @@ The version comes from Directory.Build.props, the one place it is set.
 """
 
 import io
+import os
 import re
 import shutil
 import stat
@@ -150,32 +151,66 @@ def info_plist(ver: str) -> str:
 """
 
 
+def rcodesign() -> str:
+    """rcodesign (github.com/indygreg/apple-platform-rs) signs macOS bundles
+    from any OS. Looked up in $RCODESIGN, tools/bin, then PATH."""
+    candidates = [os.environ.get("RCODESIGN"), str(ROOT / "tools" / "bin" / "rcodesign.exe"),
+                  str(ROOT / "tools" / "bin" / "rcodesign"), shutil.which("rcodesign")]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    sys.exit("rcodesign not found: put it in tools/bin or set RCODESIGN "
+             "(https://github.com/indygreg/apple-platform-rs/releases, apple-codesign)")
+
+
 def build_macos(work: Path, ver: str) -> None:
+    """The window as a signed .app bundle, zipped.
+
+    Ad-hoc signed as a whole with rcodesign. Per-binary signatures alone, as the
+    SDK leaves them, make Gatekeeper call a downloaded bundle "damaged", with no
+    way past it but Terminal; a sealed bundle gets the ordinary "cannot verify
+    the developer" and Open Anyway instead.
+
+    Published single-file so Contents/MacOS holds nothing but Mach-O: codesign
+    signs any other file there through extended attributes, and those do not
+    survive being zipped on Windows."""
     target = DIST / "rlt-recorder-macos"
     target.mkdir(parents=True, exist_ok=True)
+    signer = rcodesign()
 
     # Everything here is generated; clearing it keeps a renamed package from
     # leaving its old name behind for someone to download by mistake.
     for old in [*target.glob("*.zip"), *target.glob("*.tar.gz")]:
         old.unlink()
-    icon = (ROOT / "deploy" / "macos" / "rlt_udp.icns").read_bytes()
-    root = "RLT Recorder.app/Contents/"
-
     for rid, label in (("osx-arm64", "apple-silicon"), ("osx-x64", "intel")):
-        app = work / rid
-        publish(DESKTOP, rid, app)
+        out = work / rid
+        publish(DESKTOP, rid, out, single_file=True)
+
+        bundle = work / f"bundle-{rid}" / "RLT Recorder.app"
+        contents = bundle / "Contents"
+        (contents / "MacOS").mkdir(parents=True)
+        (contents / "Resources").mkdir()
+        for f in out.iterdir():
+            if f.is_file() and f.suffix != ".pdb":
+                if f.read_bytes()[:4] not in (MACHO_THIN, MACHO_FAT):
+                    sys.exit(f"non-Mach-O file would land in Contents/MacOS: {f.name}")
+                shutil.copy2(f, contents / "MacOS" / f.name)
+        shutil.copy2(ROOT / "deploy" / "macos" / "rlt_udp.icns", contents / "Resources")
+        (contents / "Info.plist").write_text(info_plist(ver), encoding="utf-8", newline="\n")
+
+        print(f"  sign {bundle.name} {rid}")
+        subprocess.run([signer, "sign", str(bundle)], check=True, stdout=subprocess.DEVNULL)
+        if not (contents / "_CodeSignature" / "CodeResources").is_file():
+            sys.exit(f"{rid} bundle came out without a sealed signature")
 
         with zipfile.ZipFile(target / f"rlt-recorder-gui-macos-{label}.zip", "w") as z:
-            zip_add(z, root + "Info.plist", info_plist(ver).encode(), 0o644)
-            zip_add(z, root + "Resources/rlt_udp.icns", icon, 0o644)
-            for f in sorted(app.iterdir()):
-                if not f.is_file() or f.suffix == ".pdb":
-                    continue
+            for f in sorted(p for p in bundle.rglob("*") if p.is_file()):
                 data = f.read_bytes()
                 if data[:4] == MACHO_THIN and not is_signed_macho(data):
-                    sys.exit(f"unsigned Mach-O in the {rid} build: {f.name}")
-                executable = data[:4] in (MACHO_THIN, MACHO_FAT) or f.name == "createdump"
-                zip_add(z, root + "MacOS/" + f.name, data, 0o755 if executable else 0o644)
+                    sys.exit(f"unsigned Mach-O in the {rid} bundle: {f.name}")
+                executable = data[:4] in (MACHO_THIN, MACHO_FAT)
+                zip_add(z, f"{bundle.name}/{f.relative_to(bundle).as_posix()}", data,
+                        0o755 if executable else 0o644)
 
         cli = work / f"cli-{rid}"
         publish(CLI, rid, cli)
