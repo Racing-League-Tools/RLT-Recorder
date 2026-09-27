@@ -10,8 +10,9 @@ dist/release/ gets exactly what goes on a GitHub release, plus SHA256SUMS:
     rlt-recorder-cli-macos-{apple-silicon,intel}.tar.gz
     rlt-recorder-cli-linux-{x64,arm64}.tar.gz
 
-Every archive carries LICENSE.txt and THIRD-PARTY-NOTICES.txt, the latter
-generated from the packages the build actually resolved.
+Every archive carries LICENSE.txt, LICENSE-UdpDumper.txt (the vendored
+upstream dumper's own licence) and THIRD-PARTY-NOTICES.txt, the last generated
+from the packages the build actually resolved.
 
 Two unpacked copies are also kept for local use: dist/rlt-recorder-gui-windows
 (a config.json and dumps/ there survive a rebuild) and dist/rlt-recorder-cli-linux
@@ -102,6 +103,10 @@ class Archive:
 
     def add_legal(self, folder: str, notices: bytes) -> None:
         self.add(f"{folder}LICENSE.txt", text(ROOT / "LICENSE"))
+        # The vendored upstream dumper is compiled into every binary, so its
+        # own licence travels with them.
+        self.add(f"{folder}LICENSE-UdpDumper.txt",
+                 text(ROOT / "src" / "RacingLeagueTools.UdpDumper" / "LICENSE"))
         self.add(f"{folder}THIRD-PARTY-NOTICES.txt", notices)
 
     def __enter__(self):

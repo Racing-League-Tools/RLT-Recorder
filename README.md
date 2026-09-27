@@ -1,184 +1,118 @@
-# RLT UDP Client
+# RLT Recorder
 
-A small standalone recorder for F1 telemetry. It listens on the game's UDP port,
-writes Racing League Tools dump files, and does nothing else — no database, no
-league configuration, no account.
+Records F1 telemetry into dump files for [Racing League Tools](https://racingleaguetools.com).
 
-The intended flow: a lobby member records the session, sends the `.dat` file to
-the league manager, and the manager replays it in RLT via
-**Database → Replay session from UDP dump…**. All driver matching, points and
-season handling stay in RLT where they belong.
+You race, the recorder saves the session, you send the `.dat` file to your
+league manager, and they import it in RLT with **Database → Replay session from
+UDP dump**. Results, points and driver matching all happen in RLT. The recorder
+needs no account, no league setup and no RLT installation.
 
-## Why it exists
+It works for PC and console players alike. The game sends telemetry to any
+machine on your network, so you can record on a laptop, a Mac or a Raspberry Pi
+while playing on an Xbox or PlayStation.
 
-RLT itself records dumps, but only for people who run RLT. This is for everyone
-else in the lobby — including console players, who can point the game's telemetry
-at any IP on the network and record on a phone, a laptop or a Raspberry Pi.
+## Download
 
-## Layout
+Get the latest version from [Releases](../../releases).
 
-| Project | What it is |
+| Your computer | File |
 |---|---|
-| `src/RacingLeagueTools.UdpDumper` | Upstream dumper source, from the RLT author. Packet protocols, filtering and session detection. |
-| `src/RltUdpClient.Core` | Socket, file and lifecycle handling built on top of it. |
-| `src/RltUdpClient.Cli` | `rlt-udp-record` — headless recorder for an always-on box. |
-| `src/RltUdpClient.Desktop` | Avalonia window for everyone else. |
+| Windows | `rlt-recorder-gui-windows-x64.zip` |
+| Mac with Apple M1/M2/M3/M4 | `rlt-recorder-gui-macos-apple-silicon.zip` |
+| Mac with Intel | `rlt-recorder-gui-macos-intel.zip` |
+| Linux PC or laptop | `rlt-recorder-gui-linux-x64.tar.gz` |
+| Raspberry Pi 4/5 (64-bit OS) | `rlt-recorder-gui-linux-arm64.tar.gz` |
 
-The upstream project is vendored rather than referenced in place, so our patches
-live in one tree. The pristine copy is kept outside this repository for diffing
-when the author ships an update.
+`gui` is the normal app with a window. The `cli` files are the command-line
+version for a machine that runs without a screen; see
+[Always-on machine](#always-on-machine).
 
-Patches applied to the vendored copy so far, each marked with a `Patched:` comment:
+## First start
 
-- `OutputType` changed from `Exe` to `Library`, so its `runtimeconfig.json` and
-  `deps.json` do not collide with our own executables when publishing.
+**Windows.** Unzip and run `RltUdpClient.exe`. Windows may show "Windows
+protected your PC" because the app is not signed yet: click **More info**, then
+**Run anyway**. If the firewall asks, allow access on private networks.
 
-## Dump format
+**macOS.** Unzip and open `RLT Recorder.app`. macOS will say it cannot verify
+the developer: click **Done**, go to **System Settings → Privacy & Security**,
+scroll down and click **Open Anyway**. Allow incoming connections if asked.
 
-Byte-compatible with the upstream dumper, verified by comparing inflated output
-of both against the same packet stream:
+**Linux.** Unpack and run:
 
 ```
-file = raw DEFLATE stream (RFC 1951 — no gzip/zlib wrapper, no magic)
-body = repeated [int32 little-endian packet length][raw UDP packet]
+tar xzf rlt-recorder-gui-linux-arm64.tar.gz
+./rlt-recorder/RltUdpClient
+./rlt-recorder/add-to-menu.sh      # optional: adds it to the desktop menu
 ```
 
-No timestamps are stored; RLT reconstructs timing from the packets themselves.
+The recorder starts recording as soon as it opens.
 
-Verified end to end on a real F1 25 qualifying session: recorded by this client
-on a cloud Linux box fed telemetry over the public internet, producing a 4.5 MB
-dump that RLT imported correctly through **Replay session from UDP dump**.
+## In the game
 
-## What `Core` does differently
+**Settings → Telemetry Settings**:
 
-- **Writes straight to disk.** Upstream buffers the whole session in memory,
-  which is fine on a desktop but not on a phone or a Pi Zero. The trade-off is
-  that the file exists while it is still being written, so it is kept under a
-  `.partial` name and moved into place when the session closes. Until then it is
-  not listed for download — a streaming compressor holds data back, so a dump
-  fetched mid-session can be truncated or even zero bytes.
-- **Terminates the deflate stream.** Upstream reads its buffer before closing the
-  compressor, so the final block never lands. No data is lost, but the stream is
-  technically unterminated.
-- **Names files after the session they contain.** Upstream reads the session id
-  after the handler has already advanced it, so a file closed by a session change
-  gets the *next* session's id.
-- **Closes a session when the game says it is over.** The final classification
-  packet ends a session, so the file is finished seconds later instead of after
-  two minutes of silence. A short grace period first, because the game keeps
-  sending history and position updates on the results screen, and those belong
-  in the dump too.
-- **Raises the socket receive buffer** from the ~64 KB default, which holds only
-  about 50 telemetry packets.
+- UDP Telemetry: **On**
+- UDP IP Address: the address shown in the recorder window
+- UDP Port: **20777**
+- UDP Format: **2025**
 
-## Getting files off a headless box
+Race as usual. When the status says **Receiving telemetry**, it is recording.
+Each session is saved as its own file when it ends.
 
-The recorder serves a small read-only page on port 20780 listing the recorded
-dumps, with a live view of what it is doing right now — on a machine with no
-screen, that page is both the download link and the only status display.
+## Where the files are
 
-If that port is taken the server does not start and says so, and recording
-carries on regardless. It deliberately does **not** drift to another port by
-default: a file server nobody can find is worse than one that admits it failed.
-Set `http_port_fallback` if you want it to search anyway.
-
-The `.local` address comes from the operating system's own mDNS responder
-(avahi, Bonjour, or Windows 10+), not from us — reimplementing one would only
-fight with the responder already running on the machine.
-
-## Configuration
-
-`config.json` beside the binary, or wherever `--config` points. It is created
-with defaults on first run. Anything given on the command line wins over it.
-
-| Key | Default | Meaning |
+| | Recordings | Settings |
 |---|---|---|
-| `port` | 20777 | UDP port the game sends telemetry to |
-| `output_directory` | `./dumps` | Where `.dat` files are written; a relative path is taken from the config file's folder |
-| `session_timeout_seconds` | 120 | Silence that closes the current session |
-| `final_classification_grace_seconds` | 8 | Wait after the game reports final classification |
-| `receive_buffer_bytes` | 4194304 | Socket receive buffer |
-| `http_enabled` | true | Serve files and status over HTTP |
-| `http_port` | 20780 | Port for that server |
-| `http_port_fallback` | false | Search upward when the port is taken |
-| `mdns_enabled` | true | Show a `<host>.local` address in the banner |
-| `mdns_name` | `""` | Override the host name in that address |
-| `auto_start` | true | Window only: start recording as soon as it opens |
+| Windows | `dumps` next to the app | `config.json` next to the app |
+| macOS | `~/RLT Recorder` | `~/Library/Application Support/RLT Recorder` |
+| Linux | `~/RLT Recorder` | `~/.config/rlt-recorder` |
 
-## Starting the window from another program
+The **Open** button in the window takes you there. Recordings can also be
+downloaded from any device on the same network at `http://<recorder's IP>:20780`.
 
-The desktop app accepts the upstream dumper's options, so the main RLT
-application — or a shortcut — can start it the same way:
+## Always-on machine
+
+For a Raspberry Pi or a small server without a screen, use the `cli` version.
+On Linux it installs as a service that starts on boot:
 
 ```
-RltUdpClient.exe --port 21777 [--output <folder>]
+tar xzf rlt-recorder-cli-linux-arm64.tar.gz
+cd rlt-recorder-cli-linux && sudo ./install.sh
 ```
 
-Started with either option, it begins recording immediately and does not save
-those values to `config.json`: they belong to that run, and a later manual start
-still uses the configured port. Anything unrecognised is logged in the window
-and ignored.
+Open `http://<machine's IP>:20780` in a browser to watch it and download
+recordings.
 
-## Installing on a Raspberry Pi or other always-on box
+## Running RLT on the same PC
 
-`deploy/install.sh` puts the binary in `/opt`, the config in `/etc`, the dumps
-in `/var/lib`, registers a systemd service that starts on boot, and — when avahi
-is present — advertises the file server over mDNS. It picks the right binary for
-the machine's architecture and leaves an existing config alone on upgrade.
+RLT itself listens on port 20777, so the recorder cannot use that port while
+RLT is running, and it will say so. Either close RLT, or forward RLT's
+telemetry to the recorder on another port (RLT's UDP forwarding) and start the
+recorder with that port:
 
 ```
-sudo ./install.sh
+RltUdpClient.exe --port 21777
 ```
 
-## Building
+## Something not working
 
-Needs the .NET 10 SDK.
+- **Status stays at "Waiting for telemetry"**: check the IP and port in the
+  game, and that the firewall allows UDP 20777. On a laptop, both devices must
+  be on the same network.
+- **"Port 20777 is already being used"**: RLT or another telemetry app is
+  running. See [Running RLT on the same PC](#running-rlt-on-the-same-pc).
 
-```
-dotnet build
-dotnet run --project src/RltUdpClient.Cli -- --port 20777 --output ./dumps
-```
+Report problems in [Issues](../../issues).
 
-Every release package — Windows window, Linux window and CLI (the CLI with its
-installer), macOS app bundles and CLI — into `dist/`, versioned from
-`Directory.Build.props`:
+## For developers
 
-```
-python tools/build_dist.py
-```
+Building, the dump format and how to test without the game:
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-Publishing a single target by hand:
+## Licence
 
-```
-dotnet publish src/RltUdpClient.Cli -c Release -r linux-arm64 --self-contained
-```
-
-Verified RIDs so far: `win-x64`, `linux-x64`, `linux-arm64` — the two Linux
-builds have been run on real machines, not just cross-compiled.
-The window on Linux ships as a tarball with `libICE`/`libSM` from Debian 12
-beside it: Avalonia's X11 backend loads them unconditionally at start-up, and
-minimal systems (WSL's Ubuntu, for one) do not have them. It keeps its config in
-`~/.config/rlt-recorder/` and recordings in `~/RLT Recorder/`. Run on x64 under
-WSLg; arm64 has only been cross-compiled.
-
-The macOS window is published single-file, so `Contents/MacOS` holds only
-Mach-O, and the whole bundle is ad-hoc signed with
-[rcodesign](https://github.com/indygreg/apple-platform-rs) (put it in
-`tools/bin` or point `RCODESIGN` at it). Without the bundle seal Gatekeeper
-calls a downloaded app "damaged"; with it, the usual "cannot verify the
-developer" and Open Anyway. Not notarized — that needs an Apple Developer
-account. The CLI has been run on Apple Silicon; the signed window has not
-yet been opened on a Mac. Inside a macOS app bundle
-the config lives in `~/Library/Application Support/RLT Recorder/` and
-recordings default to `~/RLT Recorder/`, since nothing may be written into the
-bundle itself.
-
-## Testing without the game
-
-`tools/harness` holds a synthetic F1 2025 packet sender and a `.dat` reader, so
-the whole recording path can be exercised on localhost without owning the game.
-
-```
-python tools/harness/f1_sender.py --paced
-python tools/harness/read_dat.py ./dumps
-```
+MIT, see [LICENSE](LICENSE). The code in `src/RacingLeagueTools.UdpDumper` is
+by [vlad-men](https://github.com/vlad-men), the author of Racing League Tools, under
+[its own licence](src/RacingLeagueTools.UdpDumper/LICENSE). The Racing League
+Tools name and logo are used with permission and are not covered by either
+licence. Bundled third-party components: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
