@@ -1,0 +1,14 @@
+* text=auto
+
+# These run on Linux (and macOS), where a CRLF breaks them: bash reads the \r
+# as part of each command, and systemd rejects the unit. Keep them LF whatever
+# core.autocrlf says on the machine that checks them out.
+*.sh              text eol=lf
+*.service         text eol=lf
+*.avahi-service   text eol=lf
+*.py              text eol=lf
+
+*.ico binary
+*.icns binary
+*.png binary
+*.so.* binary

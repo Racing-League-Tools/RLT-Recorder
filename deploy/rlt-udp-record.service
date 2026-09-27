@@ -1,0 +1,33 @@
+[Unit]
+Description=Racing League Tools UDP recorder
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rlt-record
+Group=rlt-record
+WorkingDirectory=/var/lib/rlt-udp-record
+ExecStart=/opt/rlt-udp-record/rlt-udp-record --config /etc/rlt-udp-record/config.json
+
+# A recorder that quietly died between race weekends is worse than useless,
+# so always come back.
+Restart=always
+RestartSec=5
+
+# It only ever needs to read its config and write dumps.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+# AF_NETLINK is needed to enumerate network interfaces; without it .NET throws
+# "Address family not supported by protocol" the moment it looks them up.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+ReadWritePaths=/var/lib/rlt-udp-record
+
+[Install]
+WantedBy=multi-user.target
