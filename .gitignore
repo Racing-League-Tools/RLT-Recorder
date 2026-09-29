@@ -6,3 +6,5 @@ dumps/
 dist/
 __pycache__/
 tools/bin/
+node_modules/
+.wrangler/

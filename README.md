@@ -104,6 +104,23 @@ RltUdpClient.exe --port 21777
 
 Report problems in [Issues](../../issues).
 
+## Update check and privacy
+
+Once at start-up and then once a day, the recorder asks whether a newer version
+exists. If there is one, the window, the status page and the command-line log
+say so with a link; nothing is downloaded or installed.
+
+That question is also how we know how many people use the recorder, and on
+what. It carries exactly: the recorder's version, the operating system
+(`windows`, `macos`, `linux`), the processor type (`x64`, `arm64`), whether it
+is the window or the command-line version, and a random id created on first run
+(stored in `.install-id` next to the settings) so that one computer is counted
+once. No IP address, name, recordings or anything else is stored. The server
+code is in [server/](server/).
+
+To turn it off, set `"update_check": false` in the settings file, or start the
+command-line version with `--no-update-check`.
+
 ## For developers
 
 Building, the dump format and how to test without the game:

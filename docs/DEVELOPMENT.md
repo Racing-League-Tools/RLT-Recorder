@@ -110,6 +110,7 @@ with defaults on first run. Anything given on the command line wins over it.
 | `mdns_enabled` | true | Show a `<host>.local` address in the banner |
 | `mdns_name` | `""` | Override the host name in that address |
 | `auto_start` | true | Window only: start recording as soon as it opens |
+| `update_check` | true | Daily check for a newer release, which also counts the install; see [server/](../server/) |
 
 ## Starting the window from another program
 

@@ -1,0 +1,12 @@
+{
+  "name": "rlt-recorder-server",
+  "private": true,
+  "description": "Update check and usage counter for RLT Recorder (Cloudflare Worker + D1)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.143.1"
+  }
+}

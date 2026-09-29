@@ -258,6 +258,8 @@ public sealed class StatusServer : IAsyncDisposable
             CurrentBytes: snapshot.Status.UncompressedBytes,
             SecondsSinceLastPacket: snapshot.SecondsSinceLastPacket,
             Version: AppVersion.Number,
+            UpdateVersion: snapshot.Update?.Version,
+            UpdateUrl: snapshot.Update?.Url,
             Files: EnumerateDumps()
                 .Select(f => new DumpFileEntry(f.Name, f.Length, f.LastWriteTimeUtc))
                 .ToArray());
@@ -396,6 +398,10 @@ public sealed class StatusServer : IAsyncDisposable
           .empty-icon svg { width: 22px; height: 22px; }
           .empty-title { color: var(--text); font-weight: 600; }
 
+          .update { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+                    margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(242,118,46,.28);
+                    background: var(--orange-soft); font-size: 14px; }
+          .update strong { color: var(--orange); font-weight: 600; }
           .site-footer { flex-shrink: 0; border-top: 1px solid var(--hairline); color: var(--text-2); font-size: 13px;
                          padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
           .site-footer strong { color: var(--text); font-weight: 600; }
@@ -425,6 +431,11 @@ public sealed class StatusServer : IAsyncDisposable
           <h1>UDP Recorder</h1>
           <p class="lede">Listening for F1 telemetry on UDP port <strong class="nums">{{UDP_PORT}}</strong>.
             Send the recorded dump to your league manager, who imports it in Racing League Tools.</p>
+
+          <div id="update" class="update" hidden>
+            <span><strong id="update-version"></strong> is available — you have {{VERSION}}.</span>
+            <a id="update-link" class="btn primary" href="#" target="_blank" rel="noreferrer">Get it</a>
+          </div>
 
           <section class="card">
             <div class="card-head"><h2>Current recording</h2><span id="session" class="caption nums"></span></div>
@@ -482,6 +493,12 @@ public sealed class StatusServer : IAsyncDisposable
             $("written").textContent = s.packetsWritten.toLocaleString();
             $("filtered").textContent = s.packetsFiltered.toLocaleString();
             $("size").textContent = fmt(s.currentBytes);
+
+            $("update").hidden = !s.updateVersion;
+            if (s.updateVersion) {
+              $("update-version").textContent = "Version " + s.updateVersion;
+              $("update-link").href = s.updateUrl;
+            }
 
             // The newest dump gets the filled button: it is almost always the one wanted.
             $("files").innerHTML = s.files.map((f, i) => {

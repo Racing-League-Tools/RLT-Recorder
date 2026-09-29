@@ -14,6 +14,7 @@ public sealed class RecorderState
     private string? _currentFile;
     private DateTime? _startedAt;
     private DateTime _lastPacketAt;
+    private UpdateInfo? _update;
 
     public void MarkStarted()
     {
@@ -61,6 +62,14 @@ public sealed class RecorderState
         }
     }
 
+    public void SetUpdate(UpdateInfo update)
+    {
+        lock (_gate)
+        {
+            _update = update;
+        }
+    }
+
     public RecorderSnapshot Snapshot()
     {
         lock (_gate)
@@ -73,7 +82,8 @@ public sealed class RecorderState
                     ? null
                     : (DateTime.UtcNow - _lastPacketAt).TotalSeconds,
                 Status: _status,
-                Completed: _completed.ToArray());
+                Completed: _completed.ToArray(),
+                Update: _update);
         }
     }
 }
@@ -84,7 +94,8 @@ public sealed record RecorderSnapshot(
     string? CurrentFile,
     double? SecondsSinceLastPacket,
     RecorderStatus Status,
-    IReadOnlyList<SessionSummary> Completed)
+    IReadOnlyList<SessionSummary> Completed,
+    UpdateInfo? Update)
 {
     /// <summary>
     /// True once telemetry has actually been seen recently, as opposed to the
