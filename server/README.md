@@ -19,27 +19,36 @@ new versions are still announced.
 
 Needs Node.js and a Cloudflare account with the domain on it.
 
+It runs at `rlt-recorder.kaac.uk`, the hostname built into the recorder as
+`Endpoint` in `src/RltUdpClient.Core/UpdateChecker.cs`; `wrangler.toml` already
+names that domain and its database. Updating it:
+
 ```
 cd server
 npm install
-npx wrangler login
-npx wrangler d1 create rlt-recorder            # prints the database_id
+npx wrangler login        # or set CLOUDFLARE_API_TOKEN
+npx wrangler deploy
 ```
 
-Put that id into `wrangler.toml` in place of `@DATABASE_ID@`, and the hostname
-(for example `rlt-recorder.example.com`) in place of `@DOMAIN@` — the same one
-as `Endpoint` in `src/RltUdpClient.Core/UpdateChecker.cs`. Then:
+Setting it up from scratch elsewhere: `npx wrangler d1 create rlt-recorder`,
+put the printed id and the new hostname into `wrangler.toml`, change `Endpoint`
+to match, then:
 
 ```
 npx wrangler d1 execute rlt-recorder --remote --file schema.sql
 npx wrangler deploy
 ```
 
+A token needs Account: Workers Scripts Edit, D1 Edit, Account Settings Read;
+Zone (just that domain): Workers Routes Edit, DNS Edit; User: User Details Read,
+Memberships Read.
+
 `custom_domain = true` makes Wrangler create the DNS record and certificate
-itself. Check it with:
+itself. Check it with an id that is not counted, so the test stays out of the
+numbers:
 
 ```
-curl "https://<domain>/v1/check?v=0.0.1&os=linux&arch=x64&flavor=cli&id=00000000000000000000000000000000"
+curl "https://rlt-recorder.kaac.uk/v1/check?v=0.0.1&os=linux&arch=x64&flavor=cli&id=not-counted"
 ```
 
 ## Running locally

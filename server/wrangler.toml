@@ -5,10 +5,10 @@ compatibility_date = "2026-09-01"
 # Served only on the custom domain the recorder has built in, not on workers.dev.
 workers_dev = false
 routes = [
-  { pattern = "@DOMAIN@", custom_domain = true },
+  { pattern = "rlt-recorder.kaac.uk", custom_domain = true },
 ]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "rlt-recorder"
-database_id = "@DATABASE_ID@"
+database_id = "46326446-6358-484f-b91f-0042e65b7a1d"

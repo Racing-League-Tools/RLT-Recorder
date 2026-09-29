@@ -19,7 +19,7 @@ public sealed record UpdateInfo(string Version, string Url);
 /// </summary>
 public sealed class UpdateChecker : IDisposable
 {
-    private const string Endpoint = "https://@DOMAIN@/v1/check";
+    private const string Endpoint = "https://rlt-recorder.kaac.uk/v1/check";
     private const string ReleasesApi = "https://api.github.com/repos/Racing-League-Tools/RLT-Recorder/releases?per_page=10";
 
     /// <summary>Points the check somewhere else, for testing against a local server.</summary>
