@@ -23,6 +23,7 @@
     <SolidColorBrush x:Key="Text" Color="#e4e4e4" />
     <SolidColorBrush x:Key="Live" Color="#3fa34d" />
     <SolidColorBrush x:Key="Idle" Color="#4a4a4a" />
+    <SolidColorBrush x:Key="Accent" Color="#F2762E" />
   </Window.Resources>
 
   <Window.Styles>
@@ -111,13 +112,25 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" Margin="0">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" Margin="0">
 
     <TextBlock Grid.Row="0" Text="Recorder" Classes="heading" Margin="20,18,20,14" />
     <Border Grid.Row="1" Classes="rule" />
 
+    <!-- New version, only when there is one -->
+    <Border Grid.Row="2" Background="{StaticResource Bar}" Padding="20,10"
+            BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+            IsVisible="{Binding IsUpdateAvailable}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding UpdateLabel}" Foreground="{StaticResource Accent}"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="Download" Command="{Binding OpenUpdateCommand}"
+                Background="{StaticResource Line}" />
+      </Grid>
+    </Border>
+
     <!-- Status -->
-    <Border Grid.Row="2" Classes="panel">
+    <Border Grid.Row="3" Classes="panel">
       <StackPanel Spacing="14">
         <StackPanel Orientation="Horizontal" Spacing="10">
           <Ellipse Width="9" Height="9" VerticalAlignment="Center"
@@ -147,10 +160,10 @@
       </StackPanel>
     </Border>
 
-    <Border Grid.Row="3" Classes="rule" />
+    <Border Grid.Row="4" Classes="rule" />
 
     <!-- Settings -->
-    <StackPanel Grid.Row="4" Spacing="12" Margin="20,16,20,16">
+    <StackPanel Grid.Row="5" Spacing="12" Margin="20,16,20,16">
       <Grid ColumnDefinitions="90,110,*">
         <TextBlock Grid.Column="0" Text="UDP port" VerticalAlignment="Center" />
         <NumericUpDown Grid.Column="1" Value="{Binding Port}"
@@ -179,13 +192,13 @@
       </StackPanel>
     </StackPanel>
 
-    <Border Grid.Row="5" Classes="rule" />
+    <Border Grid.Row="6" Classes="rule" />
 
-    <TextBlock Grid.Row="6" Text="Recorded sessions" Classes="column"
+    <TextBlock Grid.Row="7" Text="Recorded sessions" Classes="column"
                Margin="20,14,20,8" VerticalAlignment="Top" />
 
     <!-- Files -->
-    <Border Grid.Row="6" Background="{StaticResource Base}" Margin="0,38,0,0">
+    <Border Grid.Row="7" Background="{StaticResource Base}" Margin="0,38,0,0">
       <Grid>
         <TextBlock Text="Nothing recorded yet" Classes="hint" Margin="20,10,0,0"
                    IsVisible="{Binding !Files.Count}" />
@@ -206,10 +219,10 @@
       </Grid>
     </Border>
 
-    <Border Grid.Row="7" Classes="rule" />
+    <Border Grid.Row="8" Classes="rule" />
 
     <!-- Log, styled like the status strip at the bottom of the main app -->
-    <Border Grid.Row="8" Background="{StaticResource Bar}" Padding="20,10" MaxHeight="130">
+    <Border Grid.Row="9" Background="{StaticResource Bar}" Padding="20,10" MaxHeight="130">
       <ScrollViewer>
         <ItemsControl ItemsSource="{Binding Log}">
           <ItemsControl.ItemTemplate>

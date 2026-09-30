@@ -1,6 +1,6 @@
 [Unit]
 Description=Racing League Tools UDP recorder
-Documentation=https://github.com/
+Documentation=https://github.com/Racing-League-Tools/RLT-Recorder
 After=network-online.target
 Wants=network-online.target
 

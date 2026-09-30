@@ -29,6 +29,9 @@ public sealed class MainViewModel : ObservableObject
 
     private UdpRecorder? _recorder;
     private CancellationTokenSource? _stopping;
+    private UpdateChecker? _updates;
+    private CancellationTokenSource? _updatesStopping;
+    private UpdateInfo? _update;
     private StatusServer? _server;
     private CancellationTokenSource? _serverStopping;
     private string _serverAddress = "";
@@ -59,8 +62,10 @@ public sealed class MainViewModel : ObservableObject
         ToggleRecordingCommand = new RelayCommand(ToggleRecording);
         OpenFolderCommand = new RelayCommand(OpenOutputFolder);
         BrowseFolderCommand = new RelayCommand(BrowseForFolder);
+        OpenUpdateCommand = new RelayCommand(OpenUpdatePage);
 
         StartServer();
+        StartUpdateCheck();
 
         _tick = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _tick.Tick += (_, _) => RefreshLiveState();
@@ -144,6 +149,12 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand OpenFolderCommand { get; }
 
     public RelayCommand BrowseFolderCommand { get; }
+
+    public RelayCommand OpenUpdateCommand { get; }
+
+    public bool IsUpdateAvailable => _update is not null;
+
+    public string UpdateLabel => _update is null ? "" : $"Version {_update.Version} is available";
 
     /// <summary>
     /// Shows the system folder picker and returns the chosen path, or null if
@@ -440,6 +451,50 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Asks in the background whether a newer release exists and, if so, shows
+    /// a bar with a link to it. Never downloads anything.
+    /// </summary>
+    private void StartUpdateCheck()
+    {
+        if (!_config.UpdateCheck)
+            return;
+
+        _updates = new UpdateChecker("gui", InstallId.Load(_config.BaseDirectory, OutputDirectory));
+        _updatesStopping = new CancellationTokenSource();
+        _updates.UpdateAvailable += update =>
+        {
+            _state.SetUpdate(update);
+            OnUi(() =>
+            {
+                if (_update?.Version == update.Version)
+                    return;
+
+                _update = update;
+                Raise(nameof(IsUpdateAvailable));
+                Raise(nameof(UpdateLabel));
+                Append($"New version {update.Version} available");
+            });
+        };
+
+        _ = _updates.RunAsync(_updatesStopping.Token);
+    }
+
+    private void OpenUpdatePage()
+    {
+        if (_update is null)
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_update.Url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Append($"Could not open the browser: {ex.Message}");
+        }
+    }
+
     private void TrySaveConfig()
     {
         try
@@ -464,6 +519,8 @@ public sealed class MainViewModel : ObservableObject
     {
         _tick.Stop();
         _stopping?.Cancel();
+        _updatesStopping?.Cancel();
+        _updates?.Dispose();
         StopServer();
     }
 

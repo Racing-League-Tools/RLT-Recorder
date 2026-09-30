@@ -68,6 +68,8 @@ internal static class Program
         Console.WriteLine("Press Ctrl+C to stop.");
         Console.WriteLine();
 
+        using var updates = StartUpdateCheck(config, options.OutputDirectory, state, stopping.Token);
+
         state.MarkStarted();
 
         try
@@ -86,6 +88,33 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Checks for a newer release in the background. Found one is said once in
+    /// the log and shown on the status page; nothing is downloaded.
+    /// </summary>
+    private static UpdateChecker? StartUpdateCheck(
+        AppConfig config, string outputDirectory, RecorderState state, CancellationToken cancellationToken)
+    {
+        if (!config.UpdateCheck)
+            return null;
+
+        var checker = new UpdateChecker("cli", InstallId.Load(config.BaseDirectory, outputDirectory));
+        string? announced = null;
+
+        checker.UpdateAvailable += update =>
+        {
+            state.SetUpdate(update);
+            if (update.Version == announced)
+                return;
+
+            announced = update.Version;
+            Console.WriteLine($"  New version {update.Version} available: {update.Url}");
+        };
+
+        _ = checker.RunAsync(cancellationToken);
+        return checker;
     }
 
     /// <summary>
@@ -231,6 +260,10 @@ internal static class Program
                     config.HttpEnabled = false;
                     break;
 
+                case "--no-update-check":
+                    config.UpdateCheck = false;
+                    break;
+
                 case "-c" or "--config":
                     i++; // Already consumed above.
                     break;
@@ -287,6 +320,8 @@ internal static class Program
               -t, --timeout <sec>     Silence that ends a session (default 120)
                   --http-port <port>  Port for the file server (default 20780)
                   --no-http           Do not serve files over HTTP
+                  --no-update-check   Do not check for new versions (also stops the
+                                      anonymous usage count that goes with it)
               -h, --help              Show this help
 
             Point the game's telemetry settings at this machine's IP address and

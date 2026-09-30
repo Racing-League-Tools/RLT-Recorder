@@ -98,6 +98,14 @@ public sealed class AppConfig
     public bool AutoStart { get; set; } = true;
 
     /// <summary>
+    /// Ask once a day whether a newer release exists, which also counts this
+    /// install by version and platform; see <see cref="UpdateChecker"/> for
+    /// exactly what is sent. Off stops both.
+    /// </summary>
+    [JsonPropertyName("update_check")]
+    public bool UpdateCheck { get; set; } = true;
+
+    /// <summary>
     /// The folder a relative <see cref="OutputDirectory"/> is measured from: the
     /// one holding the config file, as the upstream dumper does. Not the working
     /// directory — the main RLT application starts the recorder without setting
