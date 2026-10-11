@@ -205,10 +205,15 @@ def build_windows(work: Path, notices: bytes) -> None:
     out = work / "win-x64"
     publish(DESKTOP, "win-x64", out, single_file=True)
 
+    # The local copy is a convenience; a recorder left running from it locks the
+    # exe, and that must not stop a release build.
     local = DIST / "rlt-recorder-gui-windows"
     local.mkdir(parents=True, exist_ok=True)
-    for f in binaries(out):
-        shutil.copy2(f, local / f.name)
+    try:
+        for f in binaries(out):
+            shutil.copy2(f, local / f.name)
+    except PermissionError:
+        print(f"  ! {local.name} not refreshed: a recorder is running from it")
 
     with Archive(RELEASE / "rlt-recorder-gui-windows-x64.zip") as a:
         for f in binaries(out):
