@@ -94,6 +94,29 @@
       <Setter Property="Fill" Value="{StaticResource Live}" />
     </Style>
 
+    <!-- Small circled "i": hover it for details that would clutter the line. -->
+    <Style Selector="Border.info">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource Muted}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Help" />
+    </Style>
+    <Style Selector="Border.info > TextBlock">
+      <Setter Property="Text" Value="i" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.info:pointerover">
+      <Setter Property="BorderBrush" Value="{StaticResource Text}" />
+    </Style>
+
     <Style Selector="ListBox">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
@@ -164,6 +187,23 @@
 
     <!-- Settings -->
     <StackPanel Grid.Row="5" Spacing="12" Margin="20,16,20,16">
+      <!-- What goes into the game's telemetry settings: this address, then the port below. -->
+      <Grid ColumnDefinitions="90,*">
+        <TextBlock Grid.Column="0" Text="IP address" VerticalAlignment="Top" Margin="0,2,0,0" />
+        <StackPanel Grid.Column="1" Spacing="2">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <SelectableTextBlock Text="{Binding LanAddressesLabel}" FontSize="16" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+            <Border Classes="info" IsVisible="{Binding HasOtherAddresses}"
+                    ToolTip.Tip="{Binding OtherAddressesTip}">
+              <TextBlock />
+            </Border>
+          </StackPanel>
+          <TextBlock Text="Enter this as UDP IP Address in the game's telemetry settings"
+                     Classes="hint" TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+
       <Grid ColumnDefinitions="90,110,*">
         <TextBlock Grid.Column="0" Text="UDP port" VerticalAlignment="Center" />
         <NumericUpDown Grid.Column="1" Value="{Binding Port}"
@@ -187,8 +227,12 @@
 
       <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsServed}">
         <TextBlock Text="Also reachable on this network at" Classes="hint" />
-        <TextBlock Text="{Binding ServerAddress}" Classes="hint"
-                   ToolTip.Tip="Open this on a phone or another computer to download the recordings" />
+        <SelectableTextBlock Text="{Binding ServerAddress}" FontSize="12"
+                             Foreground="{StaticResource Muted}" VerticalAlignment="Center"
+                             ToolTip.Tip="Open this on a phone or another computer to download the recordings" />
+        <Border Classes="info" ToolTip.Tip="{Binding ServerAddressTip}">
+          <TextBlock />
+        </Border>
       </StackPanel>
     </StackPanel>
 

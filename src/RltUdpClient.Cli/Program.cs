@@ -63,6 +63,9 @@ internal static class Program
 
         Console.WriteLine($"{AppVersion.Full}");
         Console.WriteLine($"telemetry on UDP {config.Port}  ->  {options.OutputDirectory}");
+        var lan = NetworkAddresses.Current().Lan;
+        if (lan.Count > 0)
+            Console.WriteLine($"   game setting  UDP IP Address {string.Join(" or ", lan.Select(a => a.Address))}, port {config.Port}");
         foreach (var address in addresses)
             Console.WriteLine($"                files at {address}");
         Console.WriteLine("Press Ctrl+C to stop.");
@@ -139,7 +142,13 @@ internal static class Program
         if (config.MdnsEnabled)
             addresses.Add($"http://{LocalName(config)}.local:{server.Port}/");
 
-        addresses.AddRange(LocalAddresses().Select(ip => $"http://{ip}:{server.Port}/"));
+        // Home-network addresses first; VPN ones after, since a box reached
+        // over Tailscale is a real setup here, not a mistake.
+        var local = NetworkAddresses.Current();
+        addresses.AddRange(local.Lan.Select(a => $"http://{a.Address}:{server.Port}/"));
+        addresses.AddRange(local.Other.Select(a => $"http://{a.Address}:{server.Port}/"));
+        if (local.Lan.Count == 0 && local.Other.Count == 0)
+            addresses.AddRange(ResolvedHostAddresses().Select(ip => $"http://{ip}:{server.Port}/"));
 
         // Leave the endpoint on disk too, for whoever pulls the SD card instead
         // of reaching the box over the network.
@@ -173,33 +182,6 @@ internal static class Program
             : name;
     }
 
-    /// <summary>
-    /// Addresses to show in the banner. Purely informational, so every failure
-    /// here is swallowed: enumerating interfaces needs a netlink socket, which a
-    /// sandboxed service or a locked-down container may refuse, and a recorder
-    /// must not die over a line of console output.
-    /// </summary>
-    private static IEnumerable<string> LocalAddresses()
-    {
-        try
-        {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up
-                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
-                .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork
-                            && !IPAddress.IsLoopback(a.Address))
-                .Select(a => a.Address.ToString())
-                .Distinct()
-                .ToArray();
-        }
-        catch (Exception)
-        {
-            return ResolvedHostAddresses();
-        }
-    }
-
-    /// <summary>Fallback that goes through the resolver instead of netlink.</summary>
     private static IEnumerable<string> ResolvedHostAddresses()
     {
         try
