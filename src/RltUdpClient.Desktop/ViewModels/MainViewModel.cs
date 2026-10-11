@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Net.NetworkInformation;
 using Avalonia.Threading;
 using RltUdpClient.Core;
 
@@ -35,6 +36,8 @@ public sealed class MainViewModel : ObservableObject
     private StatusServer? _server;
     private CancellationTokenSource? _serverStopping;
     private string _serverAddress = "";
+    private string _serverAddressTip = "";
+    private NetworkAddresses _addresses = NetworkAddresses.None;
     private DateTime _lastPacketAt;
 
     private int _port;
@@ -63,6 +66,9 @@ public sealed class MainViewModel : ObservableObject
         OpenFolderCommand = new RelayCommand(OpenOutputFolder);
         BrowseFolderCommand = new RelayCommand(BrowseForFolder);
         OpenUpdateCommand = new RelayCommand(OpenUpdatePage);
+
+        RefreshAddresses();
+        NetworkChange.NetworkAddressChanged += OnNetworkChanged;
 
         StartServer();
         StartUpdateCheck();
@@ -239,6 +245,29 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool IsServed => !string.IsNullOrEmpty(ServerAddress);
+
+    /// <summary>Other ways to reach the server: the machine name, and VPN addresses.</summary>
+    public string ServerAddressTip
+    {
+        get => _serverAddressTip;
+        private set => Set(ref _serverAddressTip, value);
+    }
+
+    /// <summary>
+    /// What to type into the game's telemetry settings. The adapter is named
+    /// only when there are several home networks to choose from.
+    /// </summary>
+    public string LanAddressesLabel => _addresses.Lan.Count switch
+    {
+        0 => _addresses.Primary?.Address ?? "No network connection",
+        1 => _addresses.Lan[0].Address,
+        _ => string.Join("    ", _addresses.Lan),
+    };
+
+    public bool HasOtherAddresses => _addresses.Other.Count > 0;
+
+    public string OtherAddressesTip =>
+        "Also on this computer, for telemetry sent over a VPN:\n" + string.Join("\n", _addresses.Other);
 
     // The recorder keeps reporting the last session's UID after closing it, so
     // it is only shown while a file for it is actually open.
@@ -427,8 +456,40 @@ public sealed class MainViewModel : ObservableObject
         }
 
         _server = server;
-        ServerAddress = $"http://{Environment.MachineName.ToLowerInvariant()}:{server.Port}/";
+        DescribeServer();
     }
+
+    /// <summary>
+    /// The server's address by IP rather than by name: a phone, Android above
+    /// all, often cannot resolve a Windows machine name. The name and any VPN
+    /// addresses go in the tooltip.
+    /// </summary>
+    private void DescribeServer()
+    {
+        if (_server is null)
+            return;
+
+        var port = _server.Port;
+        var host = _addresses.Primary?.Address ?? Environment.MachineName.ToLowerInvariant();
+        ServerAddress = $"http://{host}:{port}/";
+
+        var alternatives = new List<string> { $"http://{Environment.MachineName.ToLowerInvariant()}:{port}/" };
+        alternatives.AddRange(_addresses.Lan.Skip(1).Concat(_addresses.Other)
+            .Select(a => $"http://{a.Address}:{port}/  ({a.Adapter})"));
+        ServerAddressTip = "Also:\n" + string.Join("\n", alternatives);
+    }
+
+    private void RefreshAddresses()
+    {
+        _addresses = NetworkAddresses.Current();
+        Raise(nameof(LanAddressesLabel));
+        Raise(nameof(HasOtherAddresses));
+        Raise(nameof(OtherAddressesTip));
+        DescribeServer();
+    }
+
+    /// <summary>Cable unplugged, Wi-Fi changed, VPN connected: show what is true now.</summary>
+    private void OnNetworkChanged(object? sender, EventArgs e) => OnUi(RefreshAddresses);
 
     private void StopServer()
     {
@@ -517,6 +578,7 @@ public sealed class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
+        NetworkChange.NetworkAddressChanged -= OnNetworkChanged;
         _tick.Stop();
         _stopping?.Cancel();
         _updatesStopping?.Cancel();

@@ -29,6 +29,13 @@ public sealed class StatusServer : IAsyncDisposable
     private TcpListener? _listener;
     private Task? _acceptLoop;
 
+    // The page polls every second; walking the network adapters that often is
+    // pointless when they change a few times a day at most.
+    private static readonly TimeSpan AddressRefresh = TimeSpan.FromSeconds(10);
+    private readonly object _addressGate = new();
+    private NetworkAddresses _addresses = NetworkAddresses.None;
+    private DateTime _addressesAt;
+
     public StatusServer(AppConfig config, RecorderState state, string outputDirectory)
     {
         _config = config;
@@ -260,11 +267,27 @@ public sealed class StatusServer : IAsyncDisposable
             Version: AppVersion.Number,
             UpdateVersion: snapshot.Update?.Version,
             UpdateUrl: snapshot.Update?.Url,
+            LanAddresses: Addresses().Lan,
+            OtherAddresses: Addresses().Other,
             Files: EnumerateDumps()
                 .Select(f => new DumpFileEntry(f.Name, f.Length, f.LastWriteTimeUtc))
                 .ToArray());
 
         return JsonSerializer.Serialize(payload, AppJsonContext.Default.StatusPayload);
+    }
+
+    private NetworkAddresses Addresses()
+    {
+        lock (_addressGate)
+        {
+            if (DateTime.UtcNow - _addressesAt > AddressRefresh)
+            {
+                _addresses = NetworkAddresses.Current();
+                _addressesAt = DateTime.UtcNow;
+            }
+
+            return _addresses;
+        }
     }
 
     private string RenderPage() => Html
@@ -359,6 +382,10 @@ public sealed class StatusServer : IAsyncDisposable
           h1 { font: 800 32px/1.08 var(--font-display); letter-spacing: .005em; margin-bottom: 12px; }
           .lede { color: var(--text-2); margin-bottom: 32px; max-width: 68ch; }
           .lede strong { color: var(--text); font-weight: 600; }
+          .info { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+                  margin-left: 6px; border: 1px solid var(--text-2); border-radius: 50%; color: var(--text-2);
+                  font-size: 11px; font-weight: 600; line-height: 1; vertical-align: 2px; cursor: help; }
+          .info:hover { color: var(--text); border-color: var(--text); }
 
           .card { background: var(--raised); border: 1px solid var(--hairline); border-radius: 10px; padding: 24px; }
           .card + .card { margin-top: 16px; }
@@ -429,7 +456,9 @@ public sealed class StatusServer : IAsyncDisposable
         <main>
           <p id="pill" class="pill"><span class="dot"></span><span id="state">Connecting…</span></p>
           <h1>UDP Recorder</h1>
-          <p class="lede">Listening for F1 telemetry on UDP port <strong class="nums">{{UDP_PORT}}</strong>.
+          <p class="lede">In the game's telemetry settings, set UDP IP Address to
+            <strong id="ip" class="nums">this machine's address</strong><span id="ip-more" class="info" hidden>i</span>
+            and UDP Port to <strong class="nums">{{UDP_PORT}}</strong>.
             Send the recorded dump to your league manager, who imports it in Racing League Tools.</p>
 
           <div id="update" class="update" hidden>
@@ -493,6 +522,14 @@ public sealed class StatusServer : IAsyncDisposable
             $("written").textContent = s.packetsWritten.toLocaleString();
             $("filtered").textContent = s.packetsFiltered.toLocaleString();
             $("size").textContent = fmt(s.currentBytes);
+
+            // Home-network addresses go in the sentence; VPN ones in the tooltip.
+            const lan = s.lanAddresses.map(a => a.address);
+            const more = s.otherAddresses.map(a => a.address + " (" + a.adapter + ")");
+            $("ip").textContent = lan.length ? lan.join(" or ")
+              : s.otherAddresses.length ? s.otherAddresses[0].address : "this machine's address";
+            $("ip-more").hidden = more.length === 0;
+            $("ip-more").title = "Also on this machine, for telemetry sent over a VPN:\n" + more.join("\n");
 
             $("update").hidden = !s.updateVersion;
             if (s.updateVersion) {

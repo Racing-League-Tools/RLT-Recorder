@@ -22,6 +22,8 @@ public sealed record StatusPayload(
     string Version,
     string? UpdateVersion,
     string? UpdateUrl,
+    IReadOnlyList<LocalAddress> LanAddresses,
+    IReadOnlyList<LocalAddress> OtherAddresses,
     IReadOnlyList<DumpFileEntry> Files);
 
 public sealed record DumpFileEntry(string Name, long Bytes, DateTime Modified);
