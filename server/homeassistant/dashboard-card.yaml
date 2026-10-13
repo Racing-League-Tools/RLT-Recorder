@@ -1,0 +1,57 @@
+# Dashboard view for the sensors in rlt_recorder.yaml. Paste into a dashboard's
+# raw configuration editor as one view, or take the cards one by one.
+title: RLT Recorder
+path: rlt-recorder
+icon: mdi:record-rec
+cards:
+  - type: glance
+    title: Active installs
+    entities:
+      - entity: sensor.rlt_recorder_installs_today
+        name: Today
+      - entity: sensor.rlt_recorder_installs_last_7_days
+        name: 7 days
+      - entity: sensor.rlt_recorder_installs_last_30_days
+        name: 30 days
+      - entity: sensor.rlt_recorder_installs_all_time
+        name: All time
+
+  - type: statistics-graph
+    title: Per day
+    chart_type: bar
+    period: day
+    days_to_show: 30
+    stat_types: [max]
+    entities:
+      - entity: sensor.rlt_recorder_installs_today
+        name: Installs
+
+  - type: statistics-graph
+    title: Per week
+    chart_type: bar
+    period: week
+    days_to_show: 182
+    stat_types: [max]
+    entities:
+      - entity: sensor.rlt_recorder_installs_this_week
+        name: Installs
+
+  - type: statistics-graph
+    title: Per month
+    chart_type: bar
+    period: month
+    days_to_show: 365
+    stat_types: [max]
+    entities:
+      - entity: sensor.rlt_recorder_installs_this_month
+        name: Installs
+
+  - type: markdown
+    title: Last 30 days by platform, last 7 days by version
+    content: >-
+      {% set s = 'sensor.rlt_recorder_installs_last_30_days' %}
+      **Platform**{% for k, v in (state_attr(s, 'by_platform') or {}).items() %}
+      · {{ k }}: {{ v }}{% endfor %}
+
+      **Version**{% for k, v in (state_attr(s, 'by_version') or {}).items() %}
+      · {{ k }}: {{ v }}{% endfor %}

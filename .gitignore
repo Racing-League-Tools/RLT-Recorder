@@ -8,3 +8,4 @@ __pycache__/
 tools/bin/
 node_modules/
 .wrangler/
+.dev.vars

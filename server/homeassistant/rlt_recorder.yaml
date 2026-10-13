@@ -1,0 +1,65 @@
+# Home Assistant package: RLT Recorder usage from the update-check server.
+#
+# Put this file in config/packages/ (with `homeassistant: packages: !include_dir_named packages`
+# in configuration.yaml) and add to secrets.yaml:
+#
+#   rlt_recorder_stats_auth: "Bearer <STATS_TOKEN>"
+#
+# Every count is unique installs. The "today", "this week" and "this month"
+# sensors grow during their period and drop back at its start, so the maximum
+# per day / week / month in Home Assistant's statistics is that period's total —
+# which is what the bar charts in dashboard-card.yaml plot. Days are UTC, so
+# checks made between midnight and 1-2 a.m. Polish time count for the day before.
+
+rest:
+  - resource: https://rlt-recorder.kaac.uk/v1/stats
+    headers:
+      Authorization: !secret rlt_recorder_stats_auth
+    scan_interval: 900
+    timeout: 20
+    sensor:
+      - name: RLT Recorder installs today
+        unique_id: rlt_recorder_installs_today
+        value_template: "{{ value_json.today }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:calendar-today
+
+      - name: RLT Recorder installs this week
+        unique_id: rlt_recorder_installs_this_week
+        value_template: "{{ value_json.this_week }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:calendar-week
+
+      - name: RLT Recorder installs this month
+        unique_id: rlt_recorder_installs_this_month
+        value_template: "{{ value_json.this_month }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:calendar-month
+
+      - name: RLT Recorder installs last 7 days
+        unique_id: rlt_recorder_installs_last_7_days
+        value_template: "{{ value_json.last_7_days }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:account-group
+
+      - name: RLT Recorder installs last 30 days
+        unique_id: rlt_recorder_installs_last_30_days
+        value_template: "{{ value_json.last_30_days }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:account-group
+        # Breakdown for the same 30 days, and versions over the last 7.
+        json_attributes:
+          - by_platform
+          - by_version
+
+      - name: RLT Recorder installs all time
+        unique_id: rlt_recorder_installs_all_time
+        value_template: "{{ value_json.all_time }}"
+        unit_of_measurement: installs
+        state_class: measurement
+        icon: mdi:counter
