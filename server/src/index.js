@@ -6,6 +6,11 @@
 // Each check is also counted: one row per install per day, holding exactly the
 // query fields above. No IP address or other request data is stored. A check
 // that fails validation still gets an answer; it just is not counted.
+//
+// GET /v1/stats   (Authorization: Bearer <STATS_TOKEN>)
+//   -> unique installs today / this week / this month / rolling windows,
+//      by platform and version, and a per-day history. Off unless the
+//      STATS_TOKEN secret is set; it answers 404 then, as if it did not exist.
 
 const REPO = "Racing-League-Tools/RLT-Recorder";
 
@@ -22,6 +27,9 @@ const RELEASE_CACHE_SECONDS = 3600;
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/v1/stats")
+      return stats(request, env);
 
     if (url.pathname !== "/v1/check")
       return new Response("Not found", { status: 404 });
@@ -91,4 +99,65 @@ async function latestRelease(ctx) {
   })));
 
   return latest;
+}
+
+// --- statistics ---------------------------------------------------------------
+
+// Days are UTC dates, as stored. "This week" starts on Monday, matching how
+// Home Assistant groups weekly statistics.
+const HISTORY_DAYS = 90;
+
+async function stats(request, env) {
+  if (!env.STATS_TOKEN)
+    return new Response("Not found", { status: 404 });
+  if (request.method !== "GET")
+    return new Response("Method not allowed", { status: 405 });
+  if (!(await authorized(request, env.STATS_TOKEN)))
+    return new Response("Unauthorized", { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+
+  const uniqueSince = (since) =>
+    env.DB.prepare(`SELECT COUNT(DISTINCT install_id) AS n FROM checks WHERE day >= ${since}`);
+
+  const results = await env.DB.batch([
+    env.DB.prepare("SELECT COUNT(*) AS n FROM checks WHERE day = date('now')"),
+    uniqueSince("date('now', 'weekday 0', '-6 days')"),
+    uniqueSince("date('now', 'start of month')"),
+    uniqueSince("date('now', '-6 days')"),
+    uniqueSince("date('now', '-29 days')"),
+    env.DB.prepare("SELECT COUNT(DISTINCT install_id) AS n FROM checks"),
+    env.DB.prepare(
+      `SELECT os || '-' || arch || '-' || flavor AS k, COUNT(DISTINCT install_id) AS n
+       FROM checks WHERE day >= date('now', '-29 days') GROUP BY k ORDER BY n DESC`),
+    env.DB.prepare(
+      `SELECT version AS k, COUNT(DISTINCT install_id) AS n
+       FROM checks WHERE day >= date('now', '-6 days') GROUP BY k ORDER BY n DESC`),
+    env.DB.prepare(
+      `SELECT day, COUNT(*) AS n FROM checks
+       WHERE day >= date('now', '-${HISTORY_DAYS - 1} days') GROUP BY day ORDER BY day`),
+  ]);
+
+  const count = (i) => results[i].results[0]?.n ?? 0;
+  const map = (i) => Object.fromEntries(results[i].results.map((r) => [r.k, r.n]));
+
+  return Response.json({
+    today: count(0),
+    this_week: count(1),
+    this_month: count(2),
+    last_7_days: count(3),
+    last_30_days: count(4),
+    all_time: count(5),
+    by_platform: map(6),   // last 30 days
+    by_version: map(7),    // last 7 days
+    history: results[8].results.map((r) => ({ day: r.day, installs: r.n })),
+  }, { headers: { "Cache-Control": "no-store" } });
+}
+
+// Compares in constant time, so the token cannot be guessed byte by byte.
+async function authorized(request, token) {
+  const header = request.headers.get("Authorization") ?? "";
+  const given = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([given, token].map((s) =>
+    crypto.subtle.digest("SHA-256", encoder.encode(s))));
+  return crypto.subtle.timingSafeEqual(a, b);
 }

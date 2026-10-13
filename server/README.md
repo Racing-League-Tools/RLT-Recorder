@@ -60,6 +60,27 @@ npx wrangler dev --local --host localhost
 
 and point a recorder at it with `RLT_RECORDER_UPDATE_URL=http://127.0.0.1:8787/v1/check`.
 
+## Statistics endpoint
+
+```
+GET /v1/stats
+Authorization: Bearer <STATS_TOKEN>
+```
+
+Unique installs today, this week (from Monday), this month, over the last 7
+and 30 days and all time; the last 30 days by platform and the last 7 by
+version; and installs per day for the last 90 days. Days are UTC.
+
+It answers 404 until the token is set, and 401 without it:
+
+```
+npx wrangler secret put STATS_TOKEN      # any long random string
+```
+
+[homeassistant/](homeassistant/) has a Home Assistant package that polls it
+every 15 minutes into sensors, and a dashboard view with bar charts per day,
+week and month.
+
 ## Numbers
 
 ```
