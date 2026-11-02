@@ -76,6 +76,26 @@ dump that RLT imported correctly through **Replay session from UDP dump**.
   in the dump too.
 - **Raises the socket receive buffer** from the ~64 KB default, which holds only
   about 50 telemetry packets.
+- **Keeps the telemetry, status and damage packets RLT needs for results.** The
+  upstream filter drops them, but RLT saves top speed from car telemetry, tyre
+  wear from car damage, and uses tyre compound and age from car status and
+  current speed in its race battle analysis — RLT's own dumps carry them, so a
+  session replayed from ours came out without top speeds or tyre wear. Keeping
+  every packet would multiply the file size, so `ResultPacketSampler` keeps only
+  what changes something RLT computes:
+  - each type once at the start of a file, and again after the first
+    participants packet or when the number of cars changes, since RLT ignores
+    cars it does not know yet;
+  - telemetry every 0.3 s of session time (the interval RLT's gap analysis runs
+    at) and whenever a car beats its top speed, DRS open and closed apart;
+  - status when a car's visual tyre compound or tyre age changes;
+  - damage when a car's tyre wear changes as RLT rounds it — the two most worn
+    tyres averaged, half to even.
+
+  This relies on RLT turning its packet throttling off while importing a dump
+  (lone packets are not skipped) and comparing each packet with the previous
+  one of the same type, not the previous frame — both confirmed by the RLT
+  author. Replaying a dump through UDP instead of importing it still throttles.
 
 ## Getting files off a headless box
 
@@ -189,7 +209,9 @@ bundle itself.
 ## Testing without the game
 
 `tools/harness` holds a synthetic F1 2025 packet sender and a `.dat` reader, so
-the whole recording path can be exercised on localhost without owning the game.
+the whole recording path can be exercised on localhost without owning the game. The sender
+fills the speed, DRS, tyre and wear fields the recorder reads, and prints which
+packets each dump should end up with.
 
 ```
 python tools/harness/f1_sender.py --paced
