@@ -9,9 +9,11 @@ namespace RltUdpClient.Core;
 ///
 /// Packet validation, filtering and session detection are reused verbatim from
 /// RacingLeagueTools.UdpDumper (<see cref="GameSessionManager"/> and its game
-/// handlers), so the output stays byte-compatible with what RLT expects. The
-/// socket, file and lifecycle handling around it is ours, because that is the
-/// part that has to work on phones and single-board computers too.
+/// handlers), so the output stays byte-compatible with what RLT expects. On top
+/// of that filter, <see cref="ResultPacketSampler"/> keeps the few telemetry,
+/// status and damage packets RLT needs for saved results. The socket, file and
+/// lifecycle handling around it is ours, because that is the part that has to
+/// work on phones and single-board computers too.
 /// </summary>
 public sealed class UdpRecorder : IAsyncDisposable
 {
@@ -19,6 +21,7 @@ public sealed class UdpRecorder : IAsyncDisposable
 
     private readonly RecorderOptions _options;
     private readonly GameSessionManager _sessions;
+    private readonly ResultPacketSampler _resultPackets = new();
 
     private UdpClient? _udp;
     private DumpWriter? _writer;
@@ -161,7 +164,12 @@ public sealed class UdpRecorder : IAsyncDisposable
         if (result.IsShouldSaveDump is true && _packetsWritten > 0)
             await CloseSessionAsync(SessionEndReason.SessionChanged, sessionIdBeforePacket);
 
-        if (result.IsShouldDump is false)
+        // The upstream filter drops telemetry, status and damage outright; RLT
+        // still needs a few of those for the results it saves.
+        var keptByFilter = result.IsShouldDump is not false;
+        var keptForResults = _resultPackets.ShouldKeep(packet, keptByFilter);
+
+        if (!keptByFilter && !keptForResults)
         {
             _packetsFiltered++;
             RaiseStatus();
@@ -266,6 +274,7 @@ public sealed class UdpRecorder : IAsyncDisposable
             return;
 
         _writer = null;
+        _resultPackets.Reset();
 
         var sessionId = sessionIdOverride ?? _sessions.CurrentSessionId;
         var packets = writer.PacketCount;
